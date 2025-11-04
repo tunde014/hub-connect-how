@@ -19,6 +19,7 @@ import { ReturnWaybillForm } from "@/components/waybills/ReturnWaybillForm";
 import { ReturnWaybillDocument } from "@/components/waybills/ReturnWaybillDocument";
 import { ReturnProcessingDialog } from "@/components/waybills/ReturnProcessingDialog";
 import { QuickCheckoutForm } from "@/components/checkout/QuickCheckoutForm";
+import { transformAssetFromDB, transformWaybillFromDB } from "@/utils/dataTransform";
 
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { Asset, Waybill, WaybillItem, QuickCheckout, ReturnBill, Site, CompanySettings as CompanySettingsType, Employee, ReturnItem, SiteTransaction, Vehicle } from "@/types/asset";
@@ -873,7 +874,7 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
     }
   };
 
-  const handleProcessReturn = (returnData: { waybillId: string; items: ReturnItem[] }) => {
+  const handleProcessReturn = async (returnData: { waybillId: string; items: ReturnItem[] }) => {
     // Get the return waybill to know which site this return is from
     const returnWaybill = waybills.find(wb => wb.id === returnData.waybillId);
     const siteId = returnWaybill?.siteId;
@@ -942,250 +943,36 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       }
     }
 
-    // Group return items by assetId to process each asset once
-    const returnSummary = returnData.items.reduce((acc, item) => {
-      if (!acc[item.assetId]) {
-        acc[item.assetId] = {
-          assetName: item.assetName,
-          totalReturned: 0,
-          good: 0,
-          damaged: 0,
-          missing: 0
-        };
+    try {
+      // Use the backend transaction to process the return
+      if (window.db) {
+        const result = await window.db.processReturnWithTransaction(returnData);
+        if (result.success) {
+          toast({
+            title: "Return Processed",
+            description: "Return has been successfully processed.",
+          });
+          
+          // Refresh data from database
+          const [updatedAssets, updatedWaybills] = await Promise.all([
+            window.db.getAssets(),
+            window.db.getWaybills()
+          ]);
+          
+          setAssets(updatedAssets.map(transformAssetFromDB));
+          setWaybills(updatedWaybills.map(transformWaybillFromDB));
+        } else {
+          throw new Error(result.error || 'Failed to process return');
+        }
       }
-      acc[item.assetId].totalReturned += item.quantity;
-      if (item.condition === 'good') acc[item.assetId].good += item.quantity;
-      else if (item.condition === 'damaged') acc[item.assetId].damaged += item.quantity;
-      else if (item.condition === 'missing') acc[item.assetId].missing += item.quantity;
-      return acc;
-    }, {} as Record<string, { assetName: string; totalReturned: number; good: number; damaged: number; missing: number }>);
-
-    console.log('returnSummary', returnSummary);
-
-    // Update waybill items with returned quantities and breakdown
-    setWaybills(prev => prev.map(waybill => {
-      if (waybill.id === returnData.waybillId) {
-        const updatedItems = waybill.items.map(item => {
-          const summary = returnSummary[item.assetId];
-          if (summary) {
-            const existingBreakdown = item.returnBreakdown || { good: 0, damaged: 0, missing: 0 };
-            const newBreakdown = {
-              good: existingBreakdown.good + summary.good,
-              damaged: existingBreakdown.damaged + summary.damaged,
-              missing: existingBreakdown.missing + summary.missing
-            };
-            return {
-              ...item,
-              returnedQuantity: item.returnedQuantity + summary.totalReturned,
-              returnBreakdown: newBreakdown,
-              status: (item.returnedQuantity + summary.totalReturned >= item.quantity)
-                ? 'return_completed' as const
-                : 'partial_returned' as const
-            };
-          }
-          return item;
-        });
-
-        const allItemsReturned = updatedItems.every(item => item.returnedQuantity >= item.quantity);
-
-        const updatedWaybill = {
-          ...waybill,
-          items: updatedItems,
-          status: allItemsReturned ? 'return_completed' as const : 'partial_returned' as const,
-          updatedAt: new Date()
-        };
-
-        // Update database
-        if (window.db) {
-          window.db.updateWaybill(waybill.id, updatedWaybill);
-        }
-
-        return updatedWaybill;
-      }
-      return waybill;
-    }));
-
-    // Process each asset's return
-    Object.entries(returnSummary).forEach(async ([assetId, summary]) => {
-      // Update site and office inventory in a single state update
-      setAssets(prev => {
-        const newAssets = [...prev];
-
-        // Find the office asset
-        const officeAssetIndex = newAssets.findIndex(a => a.id === assetId && !a.siteId);
-        if (officeAssetIndex !== -1) {
-          const officeAsset = newAssets[officeAssetIndex];
-          console.log('officeAsset', officeAsset);
-          const newReserved = Math.max(0, (officeAsset.reservedQuantity || 0) - summary.totalReturned);
-          const newDamaged = (officeAsset.damagedCount || 0) + summary.damaged;
-          const newMissing = (officeAsset.missingCount || 0) + summary.missing;
-
-          // Update site quantities - remove returned quantity from the site
-          const updatedSiteQuantities = { ...officeAsset.siteQuantities };
-          if (updatedSiteQuantities[siteId]) {
-            updatedSiteQuantities[siteId] = Math.max(0, updatedSiteQuantities[siteId] - summary.totalReturned);
-            // Remove site entry if quantity is zero
-            if (updatedSiteQuantities[siteId] === 0) {
-              delete updatedSiteQuantities[siteId];
-            }
-          }
-
-          // Calculate total site quantities
-          const totalSiteQty = Object.values(updatedSiteQuantities).reduce((sum, qty) => sum + qty, 0);
-
-          const updatedOfficeAsset = {
-            ...officeAsset,
-            reservedQuantity: newReserved,
-            damagedCount: newDamaged,
-            missingCount: newMissing,
-            siteQuantities: updatedSiteQuantities,
-            availableQuantity: officeAsset.quantity - newReserved - newDamaged - newMissing - totalSiteQty,
-            updatedAt: new Date(),
-          };
-
-          console.log('updatedOfficeAsset', updatedOfficeAsset);
-
-          newAssets[officeAssetIndex] = updatedOfficeAsset;
-
-          // Update database
-          if (window.db) {
-            window.db.updateAsset(officeAsset.id, updatedOfficeAsset);
-          }
-        }
-
-        // Find the site asset
-        const siteAssetIndex = newAssets.findIndex(a => a.id === assetId && a.siteId === siteId);
-        if (siteAssetIndex !== -1) {
-          const siteAsset = newAssets[siteAssetIndex];
-          const newQuantity = siteAsset.quantity - summary.totalReturned;
-          const newReserved = Math.max(0, (siteAsset.reservedQuantity || 0) - summary.totalReturned);
-
-          const updatedSiteAsset = {
-            ...siteAsset,
-            quantity: newQuantity,
-            reservedQuantity: newReserved,
-            siteQuantities: {
-              ...siteAsset.siteQuantities,
-              [siteId]: newQuantity,
-            },
-            updatedAt: new Date(),
-          };
-
-          if (newQuantity <= 0) {
-            // Remove the asset from the site if quantity is zero or less
-            newAssets.splice(siteAssetIndex, 1);
-            if (window.db) {
-              window.db.deleteAsset(siteAsset.id);
-            }
-          } else {
-            newAssets[siteAssetIndex] = updatedSiteAsset;
-            // Update database
-            if (window.db) {
-              window.db.updateAsset(siteAsset.id, updatedSiteAsset);
-            }
-          }
-        }
-
-        return newAssets;
-      });
-      
-      // Reload assets from database to ensure consistency
-      setTimeout(async () => {
-        if (window.db) {
-          try {
-            const loadedAssets = await window.db.getAssets();
-            const processedAssets = loadedAssets.map((item: any) => {
-              const asset = {
-                ...item,
-                createdAt: new Date(item.createdAt),
-                updatedAt: new Date(item.updatedAt),
-                siteQuantities: item.site_quantities ? JSON.parse(item.site_quantities) : {}
-              };
-              if (!asset.siteId) {
-                const reservedQuantity = asset.reservedQuantity || 0;
-                const damagedCount = asset.damagedCount || 0;
-                const missingCount = asset.missingCount || 0;
-                const totalQuantity = asset.quantity;
-                asset.availableQuantity = totalQuantity - reservedQuantity - damagedCount - missingCount;
-              }
-              return asset;
-            });
-            setAssets(processedAssets);
-          } catch (error) {
-            logger.error('Failed to refresh assets after return', error);
-          }
-        }
-      }, 500);
-    });
-
-    // Group return items by assetId to create one transaction per asset showing total qty
-    const assetReturnMap = new Map<string, { assetName: string; good: number; damaged: number; missing: number }>();
-    returnData.items.forEach(returnItem => {
-      const existing = assetReturnMap.get(returnItem.assetId) || { assetName: returnItem.assetName, good: 0, damaged: 0, missing: 0 };
-      if (returnItem.condition === 'good') existing.good += returnItem.quantity;
-      else if (returnItem.condition === 'damaged') existing.damaged += returnItem.quantity;
-      else if (returnItem.condition === 'missing') existing.missing += returnItem.quantity;
-      assetReturnMap.set(returnItem.assetId, existing);
-    });
-
-    // Create one site transaction per asset showing total quantity returned
-    const returnTransactions: SiteTransaction[] = Array.from(assetReturnMap.entries()).map(([assetId, data]) => {
-      const totalQty = data.good + data.damaged + data.missing;
-      const notes = data.damaged > 0 || data.missing > 0 
-        ? `Returned: ${data.good} good, ${data.damaged} damaged, ${data.missing} missing`
-        : `Returned: ${data.good} good`;
-      
-      return {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        siteId: siteId || '',
-        assetId: assetId,
-        assetName: data.assetName,
-        quantity: totalQty,
-        type: 'out' as const,
-        transactionType: 'return' as const,
-        referenceId: returnData.waybillId,
-        referenceType: 'return_waybill' as const,
-        condition: 'good' as const,
-        notes: notes,
-        createdAt: new Date(),
-        createdBy: returnWaybill?.driverName
-      };
-    });
-
-    // Prevent duplicates
-    const recentTime = Date.now() - 5000;
-    const filteredTransactions = returnTransactions.filter(newTrans => {
-      return !siteTransactions.some(existing =>
-        existing.assetId === newTrans.assetId &&
-        existing.quantity === newTrans.quantity &&
-        existing.referenceId === newTrans.referenceId &&
-        existing.type === newTrans.type &&
-        new Date(existing.createdAt).getTime() > recentTime
-      );
-    });
-
-    setSiteTransactions(prev => [...prev, ...filteredTransactions]);
-
-    // Save transactions to database
-    if (window.db) {
-      filteredTransactions.forEach(async (transaction) => {
-        try {
-          await window.db.addSiteTransaction(transaction);
-        } catch (error) {
-          logger.error('Failed to save site transaction', { context: 'Index', data: { error, transaction } });
-        }
+    } catch (error) {
+      console.error('Error processing return:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to process return",
+        variant: "destructive"
       });
     }
-
-    setShowReturnForm(null);
-
-    // Trigger asset refresh to update inventory lists
-    window.dispatchEvent(new Event('refreshAssets'));
-
-    toast({
-      title: "Return Processed",
-      description: `Return processed successfully for waybill ${returnData.waybillId}`
-    });
   };
 
   const handleQuickCheckout = (checkoutData: Omit<QuickCheckout, 'id'>) => {
