@@ -63,47 +63,7 @@ export async function createWaybillTransaction(db, waybillData) {
         throw new Error(`Asset with ID ${assetId} not found`);
       }
 
-      if (waybillData.status === 'sent_to_site') {
-        // For sent_to_site waybills: ADD to site quantities, DON'T reserve
-        const siteQuantities = asset.site_quantities ? JSON.parse(asset.site_quantities) : {};
-        const currentSiteQty = siteQuantities[waybillData.siteId] || 0;
-        siteQuantities[waybillData.siteId] = currentSiteQty + item.quantity;
-
-        // Reserved stays unchanged (should be 0 for direct sent_to_site), recalculate available
-        const currentReserved = asset.reserved_quantity || 0;
-        const totalSiteQty = Object.values(siteQuantities).reduce((sum, qty) => sum + qty, 0);
-        const newAvailable = asset.quantity - currentReserved - totalSiteQty;
-
-        console.log(`Asset ${assetId}: reserved=${currentReserved}, site qty becomes ${siteQuantities[waybillData.siteId]}, available=${newAvailable}`);
-
-        // Check if we have enough total quantity (not just available, since this is a direct send)
-        const totalNeeded = currentReserved + totalSiteQty;
-        if (totalNeeded > asset.quantity) {
-          throw new Error(`Insufficient quantity for asset ${asset.name}. Total: ${asset.quantity}, Already allocated: ${totalNeeded - item.quantity}, Requested: ${item.quantity}`);
-        }
-
-        await trx('assets')
-          .where({ id: assetId })
-          .update({
-            site_quantities: JSON.stringify(siteQuantities),
-            available_quantity: newAvailable
-          });
-
-        // Create site transaction for sent_to_site waybill
-        await trx('site_transactions').insert({
-          id: `st_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          site_id: waybillData.siteId,
-          asset_id: assetId,
-          asset_name: item.assetName,
-          transaction_type: 'waybill',
-          quantity: item.quantity,
-          type: 'in',
-          reference_id: waybillId,
-          reference_type: 'waybill',
-          created_at: new Date().toISOString()
-        });
-
-      } else if (waybillData.type === 'return') {
+      if (waybillData.type === 'return') {
         // For return waybills: DO NOT reserve quantities (items are coming back FROM site)
         // Just validate that items exist at the site
         const siteQuantities = asset.site_quantities ? JSON.parse(asset.site_quantities) : {};
@@ -116,16 +76,19 @@ export async function createWaybillTransaction(db, waybillData) {
         console.log(`Return waybill: Asset ${assetId} - no reservation needed (returning ${item.quantity} from site)`);
       } else {
         // For outstanding waybills: ADD to reserved quantities
+        // Reserved = items in use (whether at warehouse or site)
         const currentReserved = asset.reserved_quantity || 0;
         const newReserved = currentReserved + item.quantity;
-        const currentSiteQty = asset.site_quantities ? JSON.parse(asset.site_quantities) : {};
-        const totalSiteQty = Object.values(currentSiteQty).reduce((sum, qty) => sum + qty, 0);
-        const newAvailable = asset.quantity - newReserved - totalSiteQty;
+        const currentDamaged = asset.damaged_count || 0;
+        const currentMissing = asset.missing_count || 0;
+        
+        // Available = quantity - reserved - damaged - missing (NOT subtracting site quantities)
+        const newAvailable = asset.quantity - newReserved - currentDamaged - currentMissing;
 
         console.log(`Asset ${assetId}: current reserved=${currentReserved}, new reserved=${newReserved}, available=${newAvailable}`);
 
         if (newAvailable < 0) {
-          throw new Error(`Insufficient quantity for asset ${asset.name}. Available: ${asset.quantity - currentReserved - totalSiteQty}, Requested: ${item.quantity}`);
+          throw new Error(`Insufficient quantity for asset ${asset.name}. Available: ${asset.quantity - currentReserved - currentDamaged - currentMissing}, Requested: ${item.quantity}`);
         }
 
         await trx('assets')
@@ -181,7 +144,7 @@ export async function sendToSiteTransaction(db, waybillId) {
 
     console.log('Waybill status updated to sent_to_site');
 
-    // Update assets: KEEP reserved quantity, ADD to site quantities
+    // Update assets: KEEP reserved quantity unchanged, ADD to site quantities
     for (const item of items) {
       const assetId = parseInt(item.assetId);
       const asset = await trx('assets').where({ id: assetId }).first();
@@ -198,9 +161,11 @@ export async function sendToSiteTransaction(db, waybillId) {
       const currentSiteQty = siteQuantities[waybill.siteId] || 0;
       siteQuantities[waybill.siteId] = currentSiteQty + item.quantity;
 
-      // Recalculate available (total - reserved - site quantities)
-      const totalSiteQty = Object.values(siteQuantities).reduce((sum, qty) => sum + qty, 0);
-      const newAvailable = asset.quantity - currentReserved - totalSiteQty;
+      // Available = quantity - reserved - damaged - missing (NOT subtracting site quantities)
+      // Site quantities are already accounted for in reserved quantity
+      const currentDamaged = asset.damaged_count || 0;
+      const currentMissing = asset.missing_count || 0;
+      const newAvailable = asset.quantity - currentReserved - currentDamaged - currentMissing;
 
       console.log(`Asset ${assetId}: reserved stays at ${currentReserved}, site qty becomes ${siteQuantities[waybill.siteId]}, available=${newAvailable}`);
 
@@ -307,8 +272,8 @@ export async function processReturnTransaction(db, returnData) {
       const newMissing = (asset.missing_count || 0) + summary.missing;
 
       // Calculate new available quantity
-      const totalSiteQty = Object.values(siteQuantities).reduce((sum, qty) => sum + qty, 0);
-      const newAvailable = asset.quantity - newReserved - newDamaged - newMissing - totalSiteQty;
+      // Available = quantity - reserved - damaged - missing (NOT subtracting site quantities)
+      const newAvailable = asset.quantity - newReserved - newDamaged - newMissing;
 
       console.log(`Asset ${assetId}: reserved ${currentReserved} -> ${newReserved}, site qty ${currentSiteQty} -> ${newSiteQty}, damaged=${newDamaged}, missing=${newMissing}, available=${newAvailable}`);
 

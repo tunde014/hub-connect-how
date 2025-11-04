@@ -262,9 +262,10 @@ const deleteWaybill = async (id) => {
         if (asset) {
           const currentReserved = asset.reserved_quantity || 0;
           const newReserved = Math.max(0, currentReserved - item.quantity);
-          const currentSiteQty = asset.site_quantities ? JSON.parse(asset.site_quantities) : {};
-          const totalSiteQty = Object.values(currentSiteQty).reduce((sum, qty) => sum + qty, 0);
-          const newAvailable = asset.quantity - newReserved - totalSiteQty;
+          const currentDamaged = asset.damaged_count || 0;
+          const currentMissing = asset.missing_count || 0;
+          // Available = quantity - reserved - damaged - missing
+          const newAvailable = asset.quantity - newReserved - currentDamaged - currentMissing;
           
           console.log(`Asset ${assetId}: unreserving ${item.quantity}, reserved ${currentReserved} -> ${newReserved}`);
           
@@ -289,8 +290,10 @@ const deleteWaybill = async (id) => {
           const currentSiteQty = siteQuantities[waybill.siteId] || 0;
           siteQuantities[waybill.siteId] = Math.max(0, currentSiteQty - item.quantity);
           
-          const totalSiteQty = Object.values(siteQuantities).reduce((sum, qty) => sum + qty, 0);
-          const newAvailable = asset.quantity - currentReserved - totalSiteQty;
+          const currentDamaged = asset.damaged_count || 0;
+          const currentMissing = asset.missing_count || 0;
+          // Available = quantity - reserved - damaged - missing
+          const newAvailable = asset.quantity - currentReserved - currentDamaged - currentMissing;
           
           console.log(`Asset ${assetId}: removing ${item.quantity} from site, site qty ${currentSiteQty} -> ${siteQuantities[waybill.siteId]}`);
           
