@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Site, Asset, Employee } from "@/types/asset";
 import { ConsumableUsageLog } from "@/types/consumable";
-import { Package2, ChevronDown, Plus, TrendingUp, Eye, BarChart3 } from "lucide-react";
+import { Package2, ChevronDown, Plus, TrendingUp, Eye, BarChart3, LineChart } from "lucide-react";
 import { format } from "date-fns";
 import { ConsumableAnalytics } from "./ConsumableAnalytics";
+import { SiteConsumablesAnalytics } from "./SiteConsumablesAnalytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +41,7 @@ export const ConsumablesSection = ({
   const [showLogDialog, setShowLogDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [showAnalyticsDialog, setShowAnalyticsDialog] = useState(false);
+  const [showSiteAnalytics, setShowSiteAnalytics] = useState(false);
   const [selectedConsumable, setSelectedConsumable] = useState<Asset | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [logForm, setLogForm] = useState<{
@@ -141,11 +143,22 @@ export const ConsumablesSection = ({
           <Package2 className="h-5 w-5" />
           <h3 className="text-lg font-semibold">Consumables Tracking</h3>
         </div>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm">
-            <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowSiteAnalytics(true)}
+            className="gap-2"
+          >
+            <LineChart className="h-4 w-4" />
+            Site Analytics
           </Button>
-        </CollapsibleTrigger>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+        </div>
       </div>
 
       <CollapsibleContent className="space-y-4">
@@ -371,14 +384,25 @@ export const ConsumablesSection = ({
 
       {/* Analytics Dialog */}
       {selectedConsumable && (
-        <ConsumableAnalytics
-          open={showAnalyticsDialog}
-          onOpenChange={setShowAnalyticsDialog}
-          consumable={selectedConsumable}
-          site={site}
-          logs={getConsumableLogs(selectedConsumable.id)}
-        />
+        <>
+          <ConsumableAnalytics
+            open={showAnalyticsDialog}
+            onOpenChange={setShowAnalyticsDialog}
+            consumable={selectedConsumable}
+            site={site}
+            logs={getConsumableLogs(selectedConsumable.id)}
+          />
+        </>
       )}
+
+      {/* Site-Wide Analytics Dialog */}
+      <SiteConsumablesAnalytics
+        open={showSiteAnalytics}
+        onOpenChange={setShowSiteAnalytics}
+        site={site}
+        assets={assets}
+        consumableLogs={consumableLogs}
+      />
     </Collapsible>
   );
 };
