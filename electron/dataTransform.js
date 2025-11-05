@@ -233,3 +233,43 @@ export function transformWaybillToDB(waybill) {
     items: JSON.stringify(waybill.items || []),
   };
 }
+
+/**
+ * Transform consumable log from database format to frontend format
+ */
+export function transformConsumableLogFromDB(dbLog) {
+  return {
+    id: dbLog.id,
+    consumableId: dbLog.consumable_id,
+    consumableName: dbLog.consumable_name,
+    siteId: dbLog.site_id.toString(),
+    date: new Date(dbLog.date),
+    quantityUsed: dbLog.quantity_used,
+    quantityRemaining: dbLog.quantity_remaining,
+    unit: dbLog.unit,
+    usedFor: dbLog.used_for,
+    usedBy: dbLog.used_by,
+    notes: dbLog.notes,
+    createdAt: new Date(dbLog.created_at),
+    updatedAt: new Date(dbLog.updated_at),
+  };
+}
+
+/**
+ * Transform consumable log from frontend format to database format
+ */
+export function transformConsumableLogToDB(log) {
+  return {
+    id: log.id,
+    consumable_id: log.consumableId,
+    consumable_name: log.consumableName,
+    site_id: log.siteId,
+    date: log.date,
+    quantity_used: log.quantityUsed,
+    quantity_remaining: log.quantityRemaining,
+    unit: log.unit,
+    used_for: log.usedFor,
+    used_by: log.usedBy,
+    notes: log.notes,
+  };
+}
