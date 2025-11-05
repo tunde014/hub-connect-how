@@ -185,7 +185,9 @@ import {
   transformEquipmentLogFromDB,
   transformEquipmentLogToDB,
   transformWaybillFromDB,
-  transformWaybillToDB
+  transformWaybillToDB,
+  transformSiteTransactionFromDB,
+  transformSiteTransactionToDB
 } from './dataTransform.js';
 
 const getAssets = () => {
@@ -366,7 +368,10 @@ const updateCompanySettings = (id, data) => {
   return db('company_settings').where({ id }).update(transformCompanySettingsToDB(data)).returning('*').then(rows => rows.map(transformCompanySettingsFromDB));
 }
 
-const getSiteTransactions = getAll('site_transactions');
+const getSiteTransactions = () => {
+  if (!db) throw new Error('Database not connected');
+  return db('site_transactions').select('*').then(transactions => transactions.map(transformSiteTransactionFromDB));
+};
 const addSiteTransaction = create('site_transactions');
 const updateSiteTransaction = update('site_transactions');
 const deleteSiteTransaction = remove('site_transactions');

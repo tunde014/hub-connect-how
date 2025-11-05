@@ -24,6 +24,7 @@ import { transformAssetFromDB, transformWaybillFromDB } from "@/utils/dataTransf
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { Asset, Waybill, WaybillItem, QuickCheckout, ReturnBill, Site, CompanySettings as CompanySettingsType, Employee, ReturnItem, SiteTransaction, Vehicle } from "@/types/asset";
 import { EquipmentLog } from "@/types/equipment";
+import { ConsumableUsageLog } from "@/types/consumable";
 import { AssetAnalyticsDialog } from "@/components/assets/AssetAnalyticsDialog";
 import { ReturnsList } from "@/components/waybills/ReturnsList";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +34,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SitesPage } from "@/components/sites/SitesPage";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSiteInventory } from "@/hooks/useSiteInventory";
+import { SiteInventoryItem } from "@/types/inventory";
 
 const Index = () => {
   const { toast } = useToast();
@@ -127,7 +130,7 @@ const Index = () => {
     })();
   }, []);
 
-  const [showClearDialog, setShowClearDialog] = useState(false);
+
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -235,8 +238,18 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
         try {
           const logs = await window.db.getEquipmentLogs();
           setEquipmentLogs(logs.map((item: any) => ({
-            ...item,
+            id: item.id,
+            equipmentId: item.equipment_id,
+            equipmentName: item.equipment_name,
+            siteId: item.site_id,
             date: new Date(item.date),
+            active: item.active,
+            downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
+            maintenanceDetails: item.maintenance_details,
+            dieselEntered: item.diesel_entered,
+            supervisorOnSite: item.supervisor_on_site,
+            clientFeedback: item.client_feedback,
+            issuesOnSite: item.issues_on_site,
             createdAt: new Date(item.created_at),
             updatedAt: new Date(item.updated_at)
           })));
@@ -246,6 +259,39 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       }
     })();
   }, []);
+
+const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
+
+  // Load consumable logs from database
+  useEffect(() => {
+    (async () => {
+      if (window.db) {
+        try {
+          const logs = await window.db.getConsumableLogs();
+          setConsumableLogs(logs.map((item: any) => ({
+            id: item.id,
+            consumableId: item.consumable_id,
+            consumableName: item.consumable_name,
+            siteId: item.site_id,
+            date: new Date(item.date),
+            quantityUsed: item.quantity_used,
+            quantityRemaining: item.quantity_remaining,
+            unit: item.unit,
+            usedFor: item.used_for,
+            usedBy: item.used_by,
+            notes: item.notes,
+            createdAt: new Date(item.created_at),
+            updatedAt: new Date(item.updated_at)
+          })));
+        } catch (error) {
+          logger.error('Failed to load consumable logs from database', error);
+        }
+      }
+    })();
+  }, []);
+
+  // Initialize site inventory hook to track materials at each site
+  const { siteInventory, getSiteInventory } = useSiteInventory(waybills, assets);
 
 
 
@@ -466,6 +512,17 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       }
 
       setWaybills(prev => [...prev, newWaybill]);
+      
+      // Trigger assets refresh
+      const loadedAssets = await window.db.getAssets();
+      window.dispatchEvent(new CustomEvent('refreshAssets', { 
+        detail: loadedAssets.map((item: any) => ({
+          ...item,
+          createdAt: new Date(item.createdAt),
+          updatedAt: new Date(item.updatedAt)
+        }))
+      }));
+      
       setShowWaybillDocument(newWaybill);
       setActiveTab("waybills");
 
@@ -701,6 +758,8 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
     // Check for existing pending returns or zero stock warnings
     const warnings: string[] = [];
     const errors: string[] = [];
+    const currentSiteInventory = getSiteInventory(waybillData.siteId);
+    
     waybillData.items.forEach(item => {
       // Check for pending returns
       const pendingReturns = waybills.filter(wb =>
@@ -709,14 +768,17 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
         wb.siteId === waybillData.siteId &&
         wb.items.some(wbItem => wbItem.assetId === item.assetId)
       );
+      
       const pendingQty = pendingReturns.reduce((sum, wb) => {
         const wbItem = wb.items.find(i => i.assetId === item.assetId);
-        return sum + (wbItem?.quantity || 0);
+        // Only count unreturned quantity (quantity minus what's already returned)
+        const unreturnedQty = (wbItem?.quantity || 0) - (wbItem?.returnedQuantity || 0);
+        return sum + unreturnedQty;
       }, 0);
 
-      // Check effective site stock (current site quantity minus pending returns)
-      const asset = assets.find(a => a.id === item.assetId);
-      const currentSiteQty = asset ? (asset.siteQuantities[waybillData.siteId] || 0) : 0;
+      // Get site quantity from siteInventory instead of assets array
+      const siteItem = currentSiteInventory.find(si => si.assetId === item.assetId);
+      const currentSiteQty = siteItem?.quantity || 0;
       const effectiveAvailable = currentSiteQty - pendingQty;
 
       if (pendingQty > 0) {
@@ -888,10 +950,13 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       return;
     }
 
+    // Get site inventory for validation
+    const currentSiteInventory = getSiteInventory(siteId);
+
     // Validate against site inventory: Ensure return quantities don't exceed what's available at the site
     for (const returnItem of returnData.items) {
-      const asset = assets.find(a => a.id === returnItem.assetId);
-      const currentSiteQty = asset ? (asset.siteQuantities[siteId] || 0) : 0;
+      const siteItem = currentSiteInventory.find(si => si.assetId === returnItem.assetId);
+      const currentSiteQty = siteItem?.quantity || 0;
 
       // Check for pending returns for the same asset from the same site, excluding the current return being processed
       const pendingReturns = waybills.filter(wb =>
@@ -903,7 +968,9 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       );
       const pendingQty = pendingReturns.reduce((sum, wb) => {
         const wbItem = wb.items.find(i => i.assetId === returnItem.assetId);
-        return sum + (wbItem?.quantity || 0);
+        // Only count unreturned quantity (quantity minus what's already returned)
+        const unreturnedQty = (wbItem?.quantity || 0) - (wbItem?.returnedQuantity || 0);
+        return sum + unreturnedQty;
       }, 0);
 
       const effectiveAvailable = currentSiteQty - pendingQty;
@@ -1190,6 +1257,7 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
           assets={assets}
           employees={employees}
           vehicles={vehicles}
+          siteInventory={getSiteInventory(selectedSite.id)}
           onCreateReturnWaybill={handleCreateReturnWaybill}
           onCancel={() => {
             setActiveTab("site-waybills");
@@ -1332,6 +1400,9 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
           vehicles={vehicles}
           transactions={siteTransactions}
           equipmentLogs={equipmentLogs}
+          consumableLogs={consumableLogs}
+          siteInventory={siteInventory}
+          getSiteInventory={getSiteInventory}
           onAddSite={async site => {
             if (!isAuthenticated) {
               toast({
@@ -1442,16 +1513,46 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
               return;
             }
             
-            if (window.electronAPI) {
+            if (window.db) {
               try {
-                await window.electronAPI.addEquipmentLog(log);
-                const logs = await window.electronAPI.getEquipmentLogs();
-                setEquipmentLogs(logs);
+                const logData = {
+                  ...log,
+                  equipment_id: log.equipmentId,
+                  equipment_name: log.equipmentName,
+                  site_id: log.siteId,
+                  date: log.date.toISOString(),
+                  active: log.active,
+                  downtime_entries: JSON.stringify(log.downtimeEntries),
+                  maintenance_details: log.maintenanceDetails,
+                  diesel_entered: log.dieselEntered,
+                  supervisor_on_site: log.supervisorOnSite,
+                  client_feedback: log.clientFeedback,
+                  issues_on_site: log.issuesOnSite
+                };
+                await window.db.createEquipmentLog(logData);
+                const logs = await window.db.getEquipmentLogs();
+                setEquipmentLogs(logs.map((item: any) => ({
+                  id: item.id,
+                  equipmentId: item.equipment_id,
+                  equipmentName: item.equipment_name,
+                  siteId: item.site_id,
+                  date: new Date(item.date),
+                  active: item.active,
+                  downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
+                  maintenanceDetails: item.maintenance_details,
+                  dieselEntered: item.diesel_entered,
+                  supervisorOnSite: item.supervisor_on_site,
+                  clientFeedback: item.client_feedback,
+                  issuesOnSite: item.issues_on_site,
+                  createdAt: new Date(item.created_at),
+                  updatedAt: new Date(item.updated_at)
+                })));
                 toast({
                   title: "Log Entry Saved",
                   description: "Equipment log has been saved successfully."
                 });
               } catch (error) {
+                console.error('Failed to save equipment log:', error);
                 toast({
                   title: "Error",
                   description: "Failed to save equipment log to database.",
@@ -1476,16 +1577,46 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
               return;
             }
             
-            if (window.electronAPI) {
+            if (window.db) {
               try {
-                await window.electronAPI.updateEquipmentLog(log);
-                const logs = await window.electronAPI.getEquipmentLogs();
-                setEquipmentLogs(logs);
+                const logData = {
+                  ...log,
+                  equipment_id: log.equipmentId,
+                  equipment_name: log.equipmentName,
+                  site_id: log.siteId,
+                  date: log.date.toISOString(),
+                  active: log.active,
+                  downtime_entries: JSON.stringify(log.downtimeEntries),
+                  maintenance_details: log.maintenanceDetails,
+                  diesel_entered: log.dieselEntered,
+                  supervisor_on_site: log.supervisorOnSite,
+                  client_feedback: log.clientFeedback,
+                  issues_on_site: log.issuesOnSite
+                };
+                await window.db.updateEquipmentLog(log.id, logData);
+                const logs = await window.db.getEquipmentLogs();
+                setEquipmentLogs(logs.map((item: any) => ({
+                  id: item.id,
+                  equipmentId: item.equipment_id,
+                  equipmentName: item.equipment_name,
+                  siteId: item.site_id,
+                  date: new Date(item.date),
+                  active: item.active,
+                  downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
+                  maintenanceDetails: item.maintenance_details,
+                  dieselEntered: item.diesel_entered,
+                  supervisorOnSite: item.supervisor_on_site,
+                  clientFeedback: item.client_feedback,
+                  issuesOnSite: item.issues_on_site,
+                  createdAt: new Date(item.created_at),
+                  updatedAt: new Date(item.updated_at)
+                })));
                 toast({
                   title: "Log Entry Updated",
                   description: "Equipment log has been updated successfully."
                 });
               } catch (error) {
+                console.error('Failed to update equipment log:', error);
                 toast({
                   title: "Error",
                   description: "Failed to update equipment log in database.",
@@ -1498,6 +1629,133 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
                 title: "Log Entry Updated",
                 description: "Equipment log has been updated successfully."
               });
+            }
+          }}
+          onAddConsumableLog={async (log: ConsumableUsageLog) => {
+            if (!isAuthenticated) {
+              toast({
+                title: "Authentication Required",
+                description: "Please login to add consumable logs",
+                variant: "destructive"
+              });
+              return;
+            }
+            
+            if (window.db) {
+              try {
+                const logData = {
+                  ...log,
+                  consumable_id: log.consumableId,
+                  consumable_name: log.consumableName,
+                  site_id: log.siteId,
+                  date: log.date.toISOString(),
+                  quantity_used: log.quantityUsed,
+                  quantity_remaining: log.quantityRemaining,
+                  unit: log.unit,
+                  used_for: log.usedFor,
+                  used_by: log.usedBy,
+                  notes: log.notes
+                };
+                await window.db.createConsumableLog(logData);
+                const logs = await window.db.getConsumableLogs();
+                setConsumableLogs(logs.map((item: any) => ({
+                  id: item.id,
+                  consumableId: item.consumable_id,
+                  consumableName: item.consumable_name,
+                  siteId: item.site_id,
+                  date: new Date(item.date),
+                  quantityUsed: item.quantity_used,
+                  quantityRemaining: item.quantity_remaining,
+                  unit: item.unit,
+                  usedFor: item.used_for,
+                  usedBy: item.used_by,
+                  notes: item.notes,
+                  createdAt: new Date(item.created_at),
+                  updatedAt: new Date(item.updated_at)
+                })));
+                
+                // Update asset siteQuantities to reflect consumption
+                const asset = assets.find(a => a.id === log.consumableId);
+                if (asset && asset.siteQuantities) {
+                  const updatedSiteQuantities = {
+                    ...asset.siteQuantities,
+                    [log.siteId]: log.quantityRemaining
+                  };
+                  const updatedAsset = {
+                    ...asset,
+                    siteQuantities: updatedSiteQuantities,
+                    updatedAt: new Date()
+                  };
+                  await window.db.updateAsset(asset.id, {
+                    site_quantities: JSON.stringify(updatedSiteQuantities),
+                    updated_at: new Date().toISOString()
+                  });
+                  setAssets(prev => prev.map(a => a.id === asset.id ? updatedAsset : a));
+                }
+              } catch (error) {
+                console.error('Failed to save consumable log:', error);
+                toast({
+                  title: "Error",
+                  description: "Failed to save consumable log to database.",
+                  variant: "destructive"
+                });
+              }
+            } else {
+              setConsumableLogs(prev => [...prev, log]);
+            }
+          }}
+          onUpdateConsumableLog={async (log: ConsumableUsageLog) => {
+            if (!isAuthenticated) {
+              toast({
+                title: "Authentication Required",
+                description: "Please login to update consumable logs",
+                variant: "destructive"
+              });
+              return;
+            }
+            
+            if (window.db) {
+              try {
+                const logData = {
+                  ...log,
+                  consumable_id: log.consumableId,
+                  consumable_name: log.consumableName,
+                  site_id: log.siteId,
+                  date: log.date.toISOString(),
+                  quantity_used: log.quantityUsed,
+                  quantity_remaining: log.quantityRemaining,
+                  unit: log.unit,
+                  used_for: log.usedFor,
+                  used_by: log.usedBy,
+                  notes: log.notes
+                };
+                await window.db.updateConsumableLog(log.id, logData);
+                const logs = await window.db.getConsumableLogs();
+                setConsumableLogs(logs.map((item: any) => ({
+                  id: item.id,
+                  consumableId: item.consumable_id,
+                  consumableName: item.consumable_name,
+                  siteId: item.site_id,
+                  date: new Date(item.date),
+                  quantityUsed: item.quantity_used,
+                  quantityRemaining: item.quantity_remaining,
+                  unit: item.unit,
+                  usedFor: item.used_for,
+                  usedBy: item.used_by,
+                  notes: item.notes,
+                  createdAt: new Date(item.created_at),
+                  updatedAt: new Date(item.updated_at)
+                })));
+              } catch (error) {
+                console.error('Failed to update consumable log:', error);
+                toast({
+                  title: "Error",
+                  description: "Failed to update consumable log in database.",
+                  variant: "destructive"
+                });
+              }
+            } else {
+              setConsumableLogs(prev => prev.map(l => l.id === log.id ? log : l));
             }
           }}
         />
@@ -1654,42 +1912,7 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
     setCompanySettings({} as CompanySettingsType);
   };
 
-  const handleClearAllAssets = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please login to clear assets",
-        variant: "destructive"
-      });
-      return;
-    }
 
-    try {
-      // Get all assets from database
-      const allAssets = await window.db.getAssets();
-
-      // Delete each asset from database
-      for (const asset of allAssets) {
-        await window.db.deleteAsset(asset.id);
-      }
-
-      // Clear local state
-      setAssets([]);
-      setShowClearDialog(false);
-
-      toast({
-        title: "All Assets Cleared",
-        description: "All assets have been deleted from database and local storage"
-      });
-    } catch (error) {
-      logger.error('Failed to clear assets', error);
-      toast({
-        title: "Error",
-        description: "Failed to clear assets from database",
-        variant: "destructive"
-      });
-    }
-  };
 
   const isAssetInventoryTab = activeTab === "assets";
 
@@ -1747,16 +1970,7 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       <InventoryReport assets={assets} companySettings={companySettings} />
       
             </div>
-            {isAuthenticated && hasPermission('write_assets') && currentUser?.role !== 'manager' && (
-              <Button
-                variant="destructive"
-                onClick={() => setShowClearDialog(true)}
-                className="w-full sm:w-auto"
-                size={isMobile ? "lg" : "default"}
-              >
-                Clear All Assets
-              </Button>
-            )}
+
           </div>
         )}
         {processingReturnWaybill && (
@@ -1808,25 +2022,7 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
           </DialogContent>
         </Dialog>
 
-        {/* Clear All Assets Dialog */}
-        <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
-          <DialogContent>
-            <DialogHeader>
-              Are you sure you want to clear all assets? This action cannot be undone.
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowClearDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleClearAllAssets}
-              >
-                Yes, Clear All
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+
 
         {/* Waybill Document Modal */}
       {showWaybillDocument && (
@@ -1941,6 +2137,7 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
                 assets={assets}
                 employees={employees}
                 vehicles={vehicles}
+                siteInventory={getSiteInventory(editingReturnWaybill.siteId)}
                 initialWaybill={editingReturnWaybill}
                 isEditMode={true}
                 onCreateReturnWaybill={handleCreateReturnWaybill}
