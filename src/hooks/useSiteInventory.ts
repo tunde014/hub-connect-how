@@ -8,11 +8,11 @@ export const useSiteInventory = (waybills: Waybill[], assets: Asset[]) => {
     const inventory: SiteInventoryItem[] = [];
     const itemMap = new Map<string, SiteInventoryItem>();
 
-    // Get all unique site IDs from assets
+    // Get all unique site IDs from assets (including zero quantities)
     assets.forEach(asset => {
       if (asset.siteQuantities) {
         Object.entries(asset.siteQuantities).forEach(([siteId, quantity]) => {
-          if (quantity > 0) {
+          if (quantity !== undefined) {
             const key = `${siteId}-${asset.id}`;
             itemMap.set(key, {
               assetId: asset.id,
@@ -31,9 +31,9 @@ export const useSiteInventory = (waybills: Waybill[], assets: Asset[]) => {
   }, [assets]);
 
   const getSiteInventory = (siteId: string): SiteInventoryItem[] => {
-    // Use the asset's siteQuantities field for the specific site
+    // Use the asset's siteQuantities field for the specific site (including zero quantities)
     return assets
-      .filter(asset => asset.siteQuantities && asset.siteQuantities[siteId] > 0)
+      .filter(asset => asset.siteQuantities && asset.siteQuantities[siteId] !== undefined)
       .map(asset => ({
         assetId: asset.id,
         itemName: asset.name,

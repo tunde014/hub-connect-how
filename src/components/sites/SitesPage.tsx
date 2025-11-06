@@ -365,32 +365,45 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
 
             <div className="space-y-6">
               {/* Materials List */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Materials at Site</h3>
-                {(() => {
-                  const materialsAtSite = getSiteInventory(selectedSite.id);
-                  return materialsAtSite.length === 0 ? (
-                    <p className="text-muted-foreground">No materials currently at this site.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {materialsAtSite.map((item) => (
-                        <div key={item.assetId} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                          <div>
-                            <p className="font-medium">{item.itemName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.quantity} {item.unit} • {item.category}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Last updated: {new Date(item.lastUpdated).toLocaleDateString()}
-                            </p>
+              <Collapsible defaultOpen={true} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    <h3 className="text-lg font-semibold">Materials at Site</h3>
+                  </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                
+                <CollapsibleContent className="space-y-2">
+                  {(() => {
+                    const materialsAtSite = getSiteInventory(selectedSite.id);
+                    return materialsAtSite.length === 0 ? (
+                      <p className="text-muted-foreground">No materials currently at this site.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {materialsAtSite.map((item) => (
+                          <div key={item.assetId} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            <div>
+                              <p className="font-medium">{item.itemName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.quantity} {item.unit} • {item.category}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Last updated: {new Date(item.lastUpdated).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant="outline">{item.category}</Badge>
                           </div>
-                          <Badge variant="outline">{item.category}</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Machines Section */}
               <MachinesSection
