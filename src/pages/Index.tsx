@@ -239,9 +239,9 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
           const logs = await window.db.getEquipmentLogs();
           setEquipmentLogs(logs.map((item: any) => ({
             id: item.id,
-            equipmentId: item.equipment_id,
+            equipmentId: item.equipment_id ? item.equipment_id.toString() : item.equipment_id,
             equipmentName: item.equipment_name,
-            siteId: item.site_id,
+            siteId: item.site_id ? item.site_id.toString() : item.site_id,
             date: new Date(item.date),
             active: item.active,
             downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
@@ -1533,9 +1533,9 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
                 const logs = await window.db.getEquipmentLogs();
                 setEquipmentLogs(logs.map((item: any) => ({
                   id: item.id,
-                  equipmentId: item.equipment_id,
+                  equipmentId: item.equipment_id ? item.equipment_id.toString() : item.equipment_id,
                   equipmentName: item.equipment_name,
-                  siteId: item.site_id,
+                  siteId: item.site_id ? item.site_id.toString() : item.site_id,
                   date: new Date(item.date),
                   active: item.active,
                   downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
@@ -1597,9 +1597,9 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
                 const logs = await window.db.getEquipmentLogs();
                 setEquipmentLogs(logs.map((item: any) => ({
                   id: item.id,
-                  equipmentId: item.equipment_id,
+                  equipmentId: item.equipment_id ? item.equipment_id.toString() : item.equipment_id,
                   equipmentName: item.equipment_name,
-                  siteId: item.site_id,
+                  siteId: item.site_id ? item.site_id.toString() : item.site_id,
                   date: new Date(item.date),
                   active: item.active,
                   downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],

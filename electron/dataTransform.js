@@ -187,11 +187,20 @@ export function transformCompanySettingsToDB(settings) {
  */
 export function transformEquipmentLogFromDB(dbLog) {
   return {
-    ...dbLog,
+    id: dbLog.id,
+    equipmentId: dbLog.equipment_id ? dbLog.equipment_id.toString() : dbLog.equipment_id,
+    equipmentName: dbLog.equipment_name,
+    siteId: dbLog.site_id ? dbLog.site_id.toString() : dbLog.site_id,
+    date: new Date(dbLog.date),
+    active: dbLog.active,
+    downtimeEntries: dbLog.downtime_entries ? JSON.parse(dbLog.downtime_entries) : [],
+    maintenanceDetails: dbLog.maintenance_details,
+    dieselEntered: dbLog.diesel_entered,
+    supervisorOnSite: dbLog.supervisor_on_site,
+    clientFeedback: dbLog.client_feedback,
+    issuesOnSite: dbLog.issues_on_site,
     createdAt: new Date(dbLog.created_at),
     updatedAt: new Date(dbLog.updated_at),
-    date: new Date(dbLog.date),
-    downtimeEntries: dbLog.downtime_entries ? JSON.parse(dbLog.downtime_entries) : [],
   };
 }
 
@@ -240,9 +249,9 @@ export function transformWaybillToDB(waybill) {
 export function transformConsumableLogFromDB(dbLog) {
   return {
     id: dbLog.id,
-    consumableId: dbLog.consumable_id,
+    consumableId: dbLog.consumable_id ? dbLog.consumable_id.toString() : dbLog.consumable_id,
     consumableName: dbLog.consumable_name,
-    siteId: dbLog.site_id.toString(),
+    siteId: dbLog.site_id ? dbLog.site_id.toString() : dbLog.site_id,
     date: new Date(dbLog.date),
     quantityUsed: dbLog.quantity_used,
     quantityRemaining: dbLog.quantity_remaining,

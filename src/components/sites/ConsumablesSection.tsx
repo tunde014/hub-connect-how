@@ -87,11 +87,27 @@ export const ConsumablesSection = ({
       return;
     }
 
+    // Check if unit exists and is not empty
+    const unit = selectedConsumable.unitOfMeasurement?.trim();
+    if (!unit) {
+      console.error('Missing unit:', {
+        consumable: selectedConsumable.name,
+        unitValue: selectedConsumable.unitOfMeasurement,
+        unitType: typeof selectedConsumable.unitOfMeasurement
+      });
+      toast({
+        title: "Missing Unit",
+        description: `This consumable (${selectedConsumable.name}) doesn't have a valid unit of measurement. Please edit the asset and add a unit.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const currentQuantity = selectedConsumable.siteQuantities?.[site.id] || 0;
     if (quantityUsed > currentQuantity) {
       toast({
         title: "Insufficient Quantity",
-        description: `Only ${currentQuantity} ${selectedConsumable.unitOfMeasurement} available at site.`,
+        description: `Only ${currentQuantity} ${unit} available at site.`,
         variant: "destructive",
       });
       return;
@@ -105,7 +121,7 @@ export const ConsumablesSection = ({
       date: selectedDate,
       quantityUsed: quantityUsed,
       quantityRemaining: currentQuantity - quantityUsed,
-      unit: selectedConsumable.unitOfMeasurement,
+      unit: unit,
       usedFor: logForm.usedFor,
       usedBy: logForm.usedBy,
       notes: logForm.notes || undefined,
@@ -124,10 +140,28 @@ export const ConsumablesSection = ({
   };
 
   const getConsumableLogs = (consumableId: string) => {
-    return consumableLogs.filter(log => 
-      log.consumableId === consumableId && 
-      log.siteId === site.id
-    );
+    const filtered = consumableLogs.filter(log => {
+      // Convert both to strings for comparison to avoid type mismatch
+      const logConsumableId = String(log.consumableId);
+      const logSiteId = String(log.siteId);
+      const targetConsumableId = String(consumableId);
+      const targetSiteId = String(site.id);
+      
+      console.log('Filtering logs:', {
+        logConsumableId,
+        logSiteId,
+        targetConsumableId,
+        targetSiteId,
+        matches: logConsumableId === targetConsumableId && logSiteId === targetSiteId
+      });
+      
+      return logConsumableId === targetConsumableId && logSiteId === targetSiteId;
+    });
+    
+    console.log('All consumable logs:', consumableLogs);
+    console.log('Filtered logs for', consumableId, 'at site', site.id, ':', filtered);
+    
+    return filtered;
   };
 
   const getTotalUsed = (consumableId: string) => {
@@ -240,7 +274,7 @@ export const ConsumablesSection = ({
 
       {/* Log Usage Dialog */}
       <Dialog open={showLogDialog} onOpenChange={setShowLogDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Log Consumable Usage</DialogTitle>
             <DialogDescription>
@@ -248,9 +282,10 @@ export const ConsumablesSection = ({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Calendar on the Left */}
             <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
+              <Label htmlFor="date">Select Date</Label>
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -259,67 +294,70 @@ export const ConsumablesSection = ({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="quantityUsed">Quantity Used *</Label>
-              <Input
-                id="quantityUsed"
-                type="number"
-                step="0.01"
-                value={logForm.quantityUsed}
-                onChange={(e) => setLogForm({...logForm, quantityUsed: e.target.value})}
-                placeholder="0.00"
-              />
-            </div>
+            {/* Form on the Right */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="quantityUsed">Quantity Used *</Label>
+                <Input
+                  id="quantityUsed"
+                  type="number"
+                  step="0.01"
+                  value={logForm.quantityUsed}
+                  onChange={(e) => setLogForm({...logForm, quantityUsed: e.target.value})}
+                  placeholder="0.00"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="usedFor">Used For *</Label>
-              <Input
-                id="usedFor"
-                value={logForm.usedFor}
-                onChange={(e) => setLogForm({...logForm, usedFor: e.target.value})}
-                placeholder="e.g., Waterproofing basement"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="usedFor">Used For *</Label>
+                <Input
+                  id="usedFor"
+                  value={logForm.usedFor}
+                  onChange={(e) => setLogForm({...logForm, usedFor: e.target.value})}
+                  placeholder="e.g., Waterproofing basement"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="usedBy">Used By *</Label>
-              <Select
-                value={logForm.usedBy}
-                onValueChange={(value) => setLogForm({...logForm, usedBy: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employee" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees
-                    .filter(emp => emp.status === 'active')
-                    .map(emp => (
-                      <SelectItem key={emp.id} value={emp.name}>
-                        {emp.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="usedBy">Used By *</Label>
+                <Select
+                  value={logForm.usedBy}
+                  onValueChange={(value) => setLogForm({...logForm, usedBy: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees
+                      .filter(emp => emp.status === 'active')
+                      .map(emp => (
+                        <SelectItem key={emp.id} value={emp.name}>
+                          {emp.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                value={logForm.notes}
-                onChange={(e) => setLogForm({...logForm, notes: e.target.value})}
-                placeholder="Additional details"
-                rows={3}
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  value={logForm.notes}
+                  onChange={(e) => setLogForm({...logForm, notes: e.target.value})}
+                  placeholder="Additional details"
+                  rows={3}
+                />
+              </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowLogDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveLog}>
-                Save Log
-              </Button>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowLogDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveLog}>
+                  Save Log
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

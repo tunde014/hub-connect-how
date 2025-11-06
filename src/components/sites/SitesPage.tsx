@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Asset, Site, Waybill, WaybillItem, CompanySettings, Employee, SiteTransaction, Vehicle } from "@/types/asset";
 import { EquipmentLog } from "@/types/equipment";
 import { SiteInventoryItem } from "@/types/inventory";
-import { MapPin, Plus, Edit, Trash2, MoreVertical, FileText, Package, Activity, Eye } from "lucide-react";
+import { MapPin, Plus, Edit, Trash2, MoreVertical, FileText, Package, Activity, Eye, ChevronDown } from "lucide-react";
 import { WaybillDocument } from "../waybills/WaybillDocument";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +20,7 @@ import { ReturnWaybillForm } from "../waybills/ReturnWaybillForm";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { MachinesSection } from "./MachinesSection";
 import { ConsumablesSection } from "./ConsumablesSection";
 import { ConsumableUsageLog } from "@/types/consumable";
@@ -412,48 +413,61 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
               />
 
               {/* Waybills List */}
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Waybills for Site</h3>
-                {waybills.filter(waybill => waybill.siteId === selectedSite.id).length === 0 ? (
-                  <p className="text-muted-foreground">No waybills for this site.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {waybills.filter(waybill => waybill.siteId === selectedSite.id).map((waybill) => {
-                      let badgeVariant: "default" | "secondary" | "outline" = 'outline';
-                      if (waybill.status === 'outstanding') {
-                        badgeVariant = 'default';
-                      } else if (waybill.status === 'sent_to_site' || waybill.status === 'partial_returned') {
-                        badgeVariant = 'secondary';
-                      } else if (waybill.status === 'return_completed') {
-                        badgeVariant = 'default';
-                      }
-                      return (
-                        <div key={waybill.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                          <div>
-                            <p className="font-medium">{waybill.id}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {waybill.driverName} • {waybill.items.length} items • {waybill.status}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={badgeVariant}>
-                              {waybill.status.replace('_', ' ')}
-                            </Badge>
-                            <Button
-                              onClick={() => handleViewWaybill(waybill)}
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+              <Collapsible defaultOpen={true} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    <h3 className="text-lg font-semibold">Waybills for Site</h3>
                   </div>
-                )}
-              </div>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                
+                <CollapsibleContent className="space-y-2">
+                  {waybills.filter(waybill => waybill.siteId === selectedSite.id).length === 0 ? (
+                    <p className="text-muted-foreground">No waybills for this site.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {waybills.filter(waybill => waybill.siteId === selectedSite.id).map((waybill) => {
+                        let badgeVariant: "default" | "secondary" | "outline" = 'outline';
+                        if (waybill.status === 'outstanding') {
+                          badgeVariant = 'default';
+                        } else if (waybill.status === 'sent_to_site' || waybill.status === 'partial_returned') {
+                          badgeVariant = 'secondary';
+                        } else if (waybill.status === 'return_completed') {
+                          badgeVariant = 'default';
+                        }
+                        return (
+                          <div key={waybill.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                            <div>
+                              <p className="font-medium">{waybill.id}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {waybill.driverName} • {waybill.items.length} items • {waybill.status}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={badgeVariant}>
+                                {waybill.status.replace('_', ' ')}
+                              </Badge>
+                              <Button
+                                onClick={() => handleViewWaybill(waybill)}
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Actions */}
               <div className="flex gap-3 pt-4">
