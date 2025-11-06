@@ -56,11 +56,11 @@ export const ConsumablesSection = ({
     notes: ""
   });
 
-  // Filter consumables at the site
+  // Filter consumables at the site (including depleted ones)
   const siteConsumables = assets.filter(asset =>
     asset.type === 'consumable' &&
     asset.siteQuantities && 
-    asset.siteQuantities[site.id] > 0
+    asset.siteQuantities[site.id] !== undefined
   );
 
   const handleLogUsage = (consumable: Asset) => {
