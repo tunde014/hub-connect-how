@@ -1154,7 +1154,7 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
   function renderContent() {
     switch (activeTab) {
       case "dashboard":
-        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} />;
+        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} />;
       case "assets":
         return <AssetTable
           assets={assets}
@@ -1761,7 +1761,7 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
         />
         );
       default:
-        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} />;
+        return <Dashboard assets={assets} waybills={waybills} quickCheckouts={quickCheckouts} sites={sites} equipmentLogs={equipmentLogs} />;
     }
   }
 
