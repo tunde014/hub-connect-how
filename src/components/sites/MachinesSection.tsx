@@ -65,11 +65,11 @@ export const MachinesSection = ({
     issuesOnSite: ""
   });
 
-  // Filter equipment for the site - only show equipment that requires logging
+  // Filter equipment for the site - only show equipment that requires logging (including those with 0 quantity)
   const siteEquipment = assets.filter(asset =>
     asset.type === 'equipment' &&
     asset.requiresLogging === true &&
-    (asset.siteId === site.id || (asset.siteQuantities && asset.siteQuantities[site.id] > 0))
+    (asset.siteId === site.id || (asset.siteQuantities && asset.siteQuantities[site.id] !== undefined))
   );
 
   const handleEquipmentSelect = (equipment: Asset) => {
