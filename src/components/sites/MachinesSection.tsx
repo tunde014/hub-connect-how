@@ -599,9 +599,14 @@ export const MachinesSection = ({
                             </div>
                           )}
 
-                          {log.issuesOnSite && (
-                            <div className="text-sm">
-                              <strong>Issues on Site:</strong> {log.issuesOnSite}
+                           {log.issuesOnSite && (
+                            <div className="mt-3 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                              <div className="flex items-start gap-2">
+                                <Badge variant="destructive" className="mt-0.5">⚠️ Issues</Badge>
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-destructive">{log.issuesOnSite}</p>
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
