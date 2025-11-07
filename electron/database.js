@@ -351,12 +351,25 @@ const getEquipmentLogs = () => {
 
 const createEquipmentLog = (data) => {
   if (!db) throw new Error('Database not connected');
-  return db('equipment_logs').insert(transformEquipmentLogToDB(data)).returning('*').then(rows => rows.map(transformEquipmentLogFromDB));
+  const dbData = transformEquipmentLogToDB(data);
+  // Remove id, created_at, and updated_at for creation - let DB handle them
+  delete dbData.id;
+  delete dbData.created_at;
+  delete dbData.updated_at;
+  return db('equipment_logs').insert(dbData).returning('*').then(rows => rows.map(transformEquipmentLogFromDB));
 }
 
 const updateEquipmentLog = (id, data) => {
   if (!db) throw new Error('Database not connected');
-  return db('equipment_logs').where({ id }).update(transformEquipmentLogToDB(data)).returning('*').then(rows => rows.map(transformEquipmentLogFromDB));
+  const dbData = transformEquipmentLogToDB(data);
+  // Remove id and created_at for updates, keep updated_at
+  delete dbData.id;
+  delete dbData.created_at;
+  // Set updated_at to now if not provided
+  if (!dbData.updated_at) {
+    dbData.updated_at = new Date().toISOString();
+  }
+  return db('equipment_logs').where({ id }).update(dbData).returning('*').then(rows => rows.map(transformEquipmentLogFromDB));
 }
 
 const deleteEquipmentLog = remove('equipment_logs');
@@ -369,12 +382,24 @@ const getConsumableLogs = () => {
 
 const createConsumableLog = (data) => {
   if (!db) throw new Error('Database not connected');
-  return db('consumable_logs').insert(transformConsumableLogToDB(data)).returning('*').then(rows => rows.map(transformConsumableLogFromDB));
+  const dbData = transformConsumableLogToDB(data);
+  // Remove created_at and updated_at for creation - let DB handle them
+  delete dbData.created_at;
+  delete dbData.updated_at;
+  return db('consumable_logs').insert(dbData).returning('*').then(rows => rows.map(transformConsumableLogFromDB));
 }
 
 const updateConsumableLog = (id, data) => {
   if (!db) throw new Error('Database not connected');
-  return db('consumable_logs').where({ id }).update(transformConsumableLogToDB(data)).returning('*').then(rows => rows.map(transformConsumableLogFromDB));
+  const dbData = transformConsumableLogToDB(data);
+  // Remove id and created_at for updates, keep updated_at
+  delete dbData.id;
+  delete dbData.created_at;
+  // Set updated_at to now if not provided
+  if (!dbData.updated_at) {
+    dbData.updated_at = new Date().toISOString();
+  }
+  return db('consumable_logs').where({ id }).update(dbData).returning('*').then(rows => rows.map(transformConsumableLogFromDB));
 }
 
 const deleteConsumableLog = remove('consumable_logs');

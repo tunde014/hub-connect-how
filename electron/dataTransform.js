@@ -215,6 +215,7 @@ export function transformEquipmentLogFromDB(dbLog) {
  */
 export function transformEquipmentLogToDB(log) {
   return {
+    id: log.id,
     equipment_id: log.equipmentId,
     equipment_name: log.equipmentName,
     site_id: log.siteId,
@@ -226,6 +227,8 @@ export function transformEquipmentLogToDB(log) {
     supervisor_on_site: log.supervisorOnSite,
     client_feedback: log.clientFeedback,
     issues_on_site: log.issuesOnSite,
+    created_at: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
+    updated_at: log.updatedAt instanceof Date ? log.updatedAt.toISOString() : log.updatedAt,
   };
 }
 
@@ -282,12 +285,14 @@ export function transformConsumableLogToDB(log) {
     consumable_id: log.consumableId,
     consumable_name: log.consumableName,
     site_id: log.siteId,
-    date: log.date,
+    date: log.date instanceof Date ? log.date.toISOString() : log.date,
     quantity_used: log.quantityUsed,
     quantity_remaining: log.quantityRemaining,
     unit: log.unit,
     used_for: log.usedFor,
     used_by: log.usedBy,
     notes: log.notes,
+    created_at: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
+    updated_at: log.updatedAt instanceof Date ? log.updatedAt.toISOString() : log.updatedAt,
   };
 }
