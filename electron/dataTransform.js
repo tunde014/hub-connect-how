@@ -6,6 +6,8 @@
 export function transformAssetFromDB(dbAsset) {
   return {
     ...dbAsset,
+    id: String(dbAsset.id), // Ensure ID is string
+    siteId: dbAsset.site_id ? String(dbAsset.site_id) : undefined, // Ensure string
     createdAt: new Date(dbAsset.created_at),
     updatedAt: new Date(dbAsset.updated_at),
     purchaseDate: dbAsset.purchase_date ? new Date(dbAsset.purchase_date) : undefined,
@@ -19,6 +21,8 @@ export function transformAssetFromDB(dbAsset) {
     requiresLogging: Boolean(dbAsset.requires_logging),
     reservedQuantity: dbAsset.reserved_quantity || 0,
     availableQuantity: dbAsset.available_quantity || 0,
+    damagedCount: dbAsset.damaged_count || 0,
+    missingCount: dbAsset.missing_count || 0,
   };
 }
 
@@ -61,6 +65,7 @@ export function transformAssetToDB(asset) {
 export function transformSiteFromDB(dbSite) {
   return {
     ...dbSite,
+    id: String(dbSite.id), // Ensure ID is string
     createdAt: new Date(dbSite.created_at),
     updatedAt: new Date(dbSite.updated_at),
     service: dbSite.service ? JSON.parse(dbSite.service) : undefined,
@@ -90,6 +95,7 @@ export function transformSiteToDB(site) {
 export function transformEmployeeFromDB(dbEmployee) {
   return {
     ...dbEmployee,
+    id: String(dbEmployee.id), // Ensure ID is string
     createdAt: new Date(dbEmployee.created_at),
     updatedAt: new Date(dbEmployee.updated_at),
     delistedDate: dbEmployee.delisted_date ? new Date(dbEmployee.delisted_date) : undefined,
@@ -101,14 +107,14 @@ export function transformEmployeeFromDB(dbEmployee) {
  */
 export function transformSiteTransactionFromDB(dbTransaction) {
   return {
-    id: dbTransaction.id,
-    siteId: dbTransaction.site_id,
-    assetId: dbTransaction.asset_id,
+    id: String(dbTransaction.id), // Ensure ID is string
+    siteId: String(dbTransaction.site_id), // Always string
+    assetId: String(dbTransaction.asset_id), // Always string
     assetName: dbTransaction.asset_name,
     quantity: dbTransaction.quantity,
     type: dbTransaction.type,
     transactionType: dbTransaction.transaction_type,
-    referenceId: dbTransaction.reference_id,
+    referenceId: String(dbTransaction.reference_id),
     referenceType: dbTransaction.reference_type,
     condition: dbTransaction.condition,
     notes: dbTransaction.notes,
@@ -187,12 +193,12 @@ export function transformCompanySettingsToDB(settings) {
  */
 export function transformEquipmentLogFromDB(dbLog) {
   return {
-    id: dbLog.id,
-    equipmentId: dbLog.equipment_id ? dbLog.equipment_id.toString() : dbLog.equipment_id,
+    id: String(dbLog.id), // Ensure ID is string
+    equipmentId: String(dbLog.equipment_id), // Always string
     equipmentName: dbLog.equipment_name,
-    siteId: dbLog.site_id ? dbLog.site_id.toString() : dbLog.site_id,
+    siteId: String(dbLog.site_id), // Always string
     date: new Date(dbLog.date),
-    active: dbLog.active,
+    active: Boolean(dbLog.active),
     downtimeEntries: dbLog.downtime_entries ? JSON.parse(dbLog.downtime_entries) : [],
     maintenanceDetails: dbLog.maintenance_details,
     dieselEntered: dbLog.diesel_entered,
@@ -212,7 +218,7 @@ export function transformEquipmentLogToDB(log) {
     equipment_id: log.equipmentId,
     equipment_name: log.equipmentName,
     site_id: log.siteId,
-    date: log.date,
+    date: log.date instanceof Date ? log.date.toISOString() : log.date,
     active: log.active,
     downtime_entries: JSON.stringify(log.downtimeEntries || []),
     maintenance_details: log.maintenanceDetails,
@@ -229,6 +235,9 @@ export function transformEquipmentLogToDB(log) {
 export function transformWaybillFromDB(dbWaybill) {
   return {
     ...dbWaybill,
+    id: String(dbWaybill.id), // Ensure ID is string
+    siteId: dbWaybill.siteId ? String(dbWaybill.siteId) : undefined,
+    returnToSiteId: dbWaybill.returnToSiteId ? String(dbWaybill.returnToSiteId) : undefined,
     items: dbWaybill.items ? JSON.parse(dbWaybill.items) : [],
   };
 }
@@ -248,10 +257,10 @@ export function transformWaybillToDB(waybill) {
  */
 export function transformConsumableLogFromDB(dbLog) {
   return {
-    id: dbLog.id,
-    consumableId: dbLog.consumable_id ? dbLog.consumable_id.toString() : dbLog.consumable_id,
+    id: String(dbLog.id), // Ensure ID is string
+    consumableId: String(dbLog.consumable_id), // Always string
     consumableName: dbLog.consumable_name,
-    siteId: dbLog.site_id ? dbLog.site_id.toString() : dbLog.site_id,
+    siteId: String(dbLog.site_id), // Always string
     date: new Date(dbLog.date),
     quantityUsed: dbLog.quantity_used,
     quantityRemaining: dbLog.quantity_remaining,

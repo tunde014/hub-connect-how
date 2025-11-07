@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Site, Asset, Employee } from "@/types/asset";
 import { ConsumableUsageLog } from "@/types/consumable";
+import { Waybill } from "@/types/asset";
 import { Package2, ChevronDown, Plus, TrendingUp, Eye, BarChart3, LineChart } from "lucide-react";
 import { format } from "date-fns";
 import { ConsumableAnalytics } from "./ConsumableAnalytics";
@@ -22,6 +23,7 @@ interface ConsumablesSectionProps {
   site: Site;
   assets: Asset[];
   employees: Employee[];
+  waybills: Waybill[];
   consumableLogs: ConsumableUsageLog[];
   onAddConsumableLog: (log: ConsumableUsageLog) => void;
   onUpdateConsumableLog: (log: ConsumableUsageLog) => void;
@@ -31,6 +33,7 @@ export const ConsumablesSection = ({
   site,
   assets,
   employees,
+  waybills,
   consumableLogs,
   onAddConsumableLog,
   onUpdateConsumableLog
@@ -56,12 +59,29 @@ export const ConsumablesSection = ({
     notes: ""
   });
 
-  // Filter consumables at the site (including depleted ones)
-  const siteConsumables = assets.filter(asset =>
-    asset.type === 'consumable' &&
-    asset.siteQuantities && 
-    asset.siteQuantities[site.id] !== undefined
-  );
+  // Filter consumables at the site (INCLUDING depleted/zero and historical via waybills/logs)
+  const siteConsumables = assets.filter(asset => {
+    if (asset.type !== 'consumable') return false;
+    
+    // Check if consumable has usage logs at this site
+    const hasLogs = consumableLogs.some(log => 
+      log.consumableId === asset.id && 
+      log.siteId === site.id
+    );
+    
+    // Check if consumable currently has quantity at this site (including 0)
+    const hasSiteQuantity = asset.siteQuantities && asset.siteQuantities[site.id] !== undefined;
+    
+    // Check if consumable was ever sent to this site via waybill
+    const hasWaybillHistory = waybills.some(wb => 
+      wb.siteId === site.id && 
+      wb.items.some(item => item.assetId === asset.id)
+    );
+    
+    // Show consumable if it has logs, current site quantity, OR waybill history
+    // This ensures consumables remain visible even if fully consumed/returned
+    return hasLogs || hasSiteQuantity || hasWaybillHistory;
+  });
 
   const handleLogUsage = (consumable: Asset) => {
     setSelectedConsumable(consumable);
@@ -201,16 +221,16 @@ export const ConsumablesSection = ({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {siteConsumables.map((consumable) => {
-              const currentQty = consumable.siteQuantities![site.id];
+              const currentQty = consumable.siteQuantities?.[site.id] ?? 0;
               const totalUsed = getTotalUsed(consumable.id);
               const logs = getConsumableLogs(consumable.id);
               
               return (
-                <Card key={consumable.id} className="border-0 shadow-soft">
+                <Card key={consumable.id} className={`border-0 shadow-soft ${currentQty === 0 ? 'opacity-75' : ''}`}>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center justify-between">
                       <span className="truncate">{consumable.name}</span>
-                      <Badge variant="outline" className="ml-2">
+                      <Badge variant={currentQty === 0 ? 'destructive' : 'outline'} className="ml-2">
                         {currentQty} {consumable.unitOfMeasurement}
                       </Badge>
                     </CardTitle>
@@ -219,7 +239,10 @@ export const ConsumablesSection = ({
                     <div className="text-sm space-y-1">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">At Site:</span>
-                        <span className="font-medium">{currentQty} {consumable.unitOfMeasurement}</span>
+                        <span className={`font-medium ${currentQty === 0 ? 'text-destructive' : ''}`}>
+                          {currentQty} {consumable.unitOfMeasurement}
+                          {currentQty === 0 && ' (Empty)'}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Used:</span>
@@ -239,7 +262,7 @@ export const ConsumablesSection = ({
                         disabled={!hasPermission('print_documents') || currentQty === 0}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Log Usage
+                        {currentQty === 0 ? 'Depleted' : 'Log Usage'}
                       </Button>
                       <Button
                         onClick={() => {

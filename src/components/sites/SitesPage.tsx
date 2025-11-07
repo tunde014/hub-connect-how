@@ -386,17 +386,21 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                     ) : (
                       <div className="space-y-2">
                         {materialsAtSite.map((item) => (
-                          <div key={item.assetId} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                            <div>
+                          <div key={item.assetId} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                            <div className="flex items-center gap-3">
                               <p className="font-medium">{item.itemName}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {item.quantity} {item.unit} • {item.category}
+                              {item.itemType && (
+                                <span className="text-sm text-muted-foreground">• {item.itemType}</span>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className={`font-semibold ${item.quantity === 0 ? 'text-destructive' : 'text-foreground'}`}>
+                                {item.quantity} {item.unit}
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">
-                                Last updated: {new Date(item.lastUpdated).toLocaleDateString()}
+                                Updated: {new Date(item.lastUpdated).toLocaleDateString()}
                               </p>
                             </div>
-                            <Badge variant="outline">{item.category}</Badge>
                           </div>
                         ))}
                       </div>
@@ -420,6 +424,7 @@ export const SitesPage = ({ sites, assets, waybills, employees, vehicles, transa
                 site={selectedSite}
                 assets={assets}
                 employees={employees}
+                waybills={waybills}
                 consumableLogs={consumableLogs}
                 onAddConsumableLog={onAddConsumableLog}
                 onUpdateConsumableLog={onUpdateConsumableLog}

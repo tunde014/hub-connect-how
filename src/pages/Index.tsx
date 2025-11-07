@@ -19,7 +19,6 @@ import { ReturnWaybillForm } from "@/components/waybills/ReturnWaybillForm";
 import { ReturnWaybillDocument } from "@/components/waybills/ReturnWaybillDocument";
 import { ReturnProcessingDialog } from "@/components/waybills/ReturnProcessingDialog";
 import { QuickCheckoutForm } from "@/components/checkout/QuickCheckoutForm";
-import { transformAssetFromDB, transformWaybillFromDB } from "@/utils/dataTransform";
 
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { Asset, Waybill, WaybillItem, QuickCheckout, ReturnBill, Site, CompanySettings as CompanySettingsType, Employee, ReturnItem, SiteTransaction, Vehicle } from "@/types/asset";
@@ -1026,8 +1025,9 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
             window.db.getWaybills()
           ]);
           
-          setAssets(updatedAssets.map(transformAssetFromDB));
-          setWaybills(updatedWaybills.map(transformWaybillFromDB));
+          // Data is already transformed by database layer
+          setAssets(updatedAssets);
+          setWaybills(updatedWaybills);
         } else {
           throw new Error(result.error || 'Failed to process return');
         }
@@ -1515,44 +1515,15 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
             
             if (window.db) {
               try {
-                const logData = {
-                  ...log,
-                  equipment_id: log.equipmentId,
-                  equipment_name: log.equipmentName,
-                  site_id: log.siteId,
-                  date: log.date.toISOString(),
-                  active: log.active,
-                  downtime_entries: JSON.stringify(log.downtimeEntries),
-                  maintenance_details: log.maintenanceDetails,
-                  diesel_entered: log.dieselEntered,
-                  supervisor_on_site: log.supervisorOnSite,
-                  client_feedback: log.clientFeedback,
-                  issues_on_site: log.issuesOnSite
-                };
-                await window.db.createEquipmentLog(logData);
+                await window.db.createEquipmentLog(log);
                 const logs = await window.db.getEquipmentLogs();
-                setEquipmentLogs(logs.map((item: any) => ({
-                  id: item.id,
-                  equipmentId: item.equipment_id ? item.equipment_id.toString() : item.equipment_id,
-                  equipmentName: item.equipment_name,
-                  siteId: item.site_id ? item.site_id.toString() : item.site_id,
-                  date: new Date(item.date),
-                  active: item.active,
-                  downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
-                  maintenanceDetails: item.maintenance_details,
-                  dieselEntered: item.diesel_entered,
-                  supervisorOnSite: item.supervisor_on_site,
-                  clientFeedback: item.client_feedback,
-                  issuesOnSite: item.issues_on_site,
-                  createdAt: new Date(item.created_at),
-                  updatedAt: new Date(item.updated_at)
-                })));
+                setEquipmentLogs(logs);
                 toast({
-                  title: "Log Entry Saved",
-                  description: "Equipment log has been saved successfully."
+                  title: "Equipment Log Added",
+                  description: "Equipment log saved successfully"
                 });
               } catch (error) {
-                console.error('Failed to save equipment log:', error);
+                logger.error('Failed to save equipment log', error);
                 toast({
                   title: "Error",
                   description: "Failed to save equipment log to database.",
@@ -1561,10 +1532,6 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
               }
             } else {
               setEquipmentLogs(prev => [...prev, log]);
-              toast({
-                title: "Log Entry Saved",
-                description: "Equipment log has been saved successfully."
-              });
             }
           }}
           onUpdateEquipmentLog={async (log: EquipmentLog) => {
@@ -1579,44 +1546,15 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
             
             if (window.db) {
               try {
-                const logData = {
-                  ...log,
-                  equipment_id: log.equipmentId,
-                  equipment_name: log.equipmentName,
-                  site_id: log.siteId,
-                  date: log.date.toISOString(),
-                  active: log.active,
-                  downtime_entries: JSON.stringify(log.downtimeEntries),
-                  maintenance_details: log.maintenanceDetails,
-                  diesel_entered: log.dieselEntered,
-                  supervisor_on_site: log.supervisorOnSite,
-                  client_feedback: log.clientFeedback,
-                  issues_on_site: log.issuesOnSite
-                };
-                await window.db.updateEquipmentLog(log.id, logData);
+                await window.db.updateEquipmentLog(log.id, log);
                 const logs = await window.db.getEquipmentLogs();
-                setEquipmentLogs(logs.map((item: any) => ({
-                  id: item.id,
-                  equipmentId: item.equipment_id ? item.equipment_id.toString() : item.equipment_id,
-                  equipmentName: item.equipment_name,
-                  siteId: item.site_id ? item.site_id.toString() : item.site_id,
-                  date: new Date(item.date),
-                  active: item.active,
-                  downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
-                  maintenanceDetails: item.maintenance_details,
-                  dieselEntered: item.diesel_entered,
-                  supervisorOnSite: item.supervisor_on_site,
-                  clientFeedback: item.client_feedback,
-                  issuesOnSite: item.issues_on_site,
-                  createdAt: new Date(item.created_at),
-                  updatedAt: new Date(item.updated_at)
-                })));
+                setEquipmentLogs(logs);
                 toast({
-                  title: "Log Entry Updated",
-                  description: "Equipment log has been updated successfully."
+                  title: "Equipment Log Updated",
+                  description: "Equipment log updated successfully"
                 });
               } catch (error) {
-                console.error('Failed to update equipment log:', error);
+                logger.error('Failed to update equipment log', error);
                 toast({
                   title: "Error",
                   description: "Failed to update equipment log in database.",
@@ -1625,10 +1563,6 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
               }
             } else {
               setEquipmentLogs(prev => prev.map(l => l.id === log.id ? log : l));
-              toast({
-                title: "Log Entry Updated",
-                description: "Equipment log has been updated successfully."
-              });
             }
           }}
           onAddConsumableLog={async (log: ConsumableUsageLog) => {
@@ -1643,36 +1577,9 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
             
             if (window.db) {
               try {
-                const logData = {
-                  ...log,
-                  consumable_id: log.consumableId,
-                  consumable_name: log.consumableName,
-                  site_id: log.siteId,
-                  date: log.date.toISOString(),
-                  quantity_used: log.quantityUsed,
-                  quantity_remaining: log.quantityRemaining,
-                  unit: log.unit,
-                  used_for: log.usedFor,
-                  used_by: log.usedBy,
-                  notes: log.notes
-                };
-                await window.db.createConsumableLog(logData);
+                await window.db.createConsumableLog(log);
                 const logs = await window.db.getConsumableLogs();
-                setConsumableLogs(logs.map((item: any) => ({
-                  id: item.id,
-                  consumableId: item.consumable_id,
-                  consumableName: item.consumable_name,
-                  siteId: item.site_id,
-                  date: new Date(item.date),
-                  quantityUsed: item.quantity_used,
-                  quantityRemaining: item.quantity_remaining,
-                  unit: item.unit,
-                  usedFor: item.used_for,
-                  usedBy: item.used_by,
-                  notes: item.notes,
-                  createdAt: new Date(item.created_at),
-                  updatedAt: new Date(item.updated_at)
-                })));
+                setConsumableLogs(logs);
                 
                 // Update asset siteQuantities to reflect consumption
                 const asset = assets.find(a => a.id === log.consumableId);
@@ -1686,14 +1593,16 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
                     siteQuantities: updatedSiteQuantities,
                     updatedAt: new Date()
                   };
-                  await window.db.updateAsset(asset.id, {
-                    site_quantities: JSON.stringify(updatedSiteQuantities),
-                    updated_at: new Date().toISOString()
-                  });
+                  await window.db.updateAsset(asset.id, updatedAsset);
                   setAssets(prev => prev.map(a => a.id === asset.id ? updatedAsset : a));
                 }
+                
+                toast({
+                  title: "Consumable Log Added",
+                  description: "Consumable usage log saved successfully"
+                });
               } catch (error) {
-                console.error('Failed to save consumable log:', error);
+                logger.error('Failed to save consumable log', error);
                 toast({
                   title: "Error",
                   description: "Failed to save consumable log to database.",

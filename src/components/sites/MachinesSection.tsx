@@ -65,11 +65,12 @@ export const MachinesSection = ({
     issuesOnSite: ""
   });
 
-  // Filter equipment for the site - only show equipment that requires logging (including those with 0 quantity)
+  // Filter equipment for the site - show ALL equipment including those with 0 quantity
+  // This ensures we can still see and log machines even if they're temporarily removed
   const siteEquipment = assets.filter(asset =>
     asset.type === 'equipment' &&
     asset.requiresLogging === true &&
-    (asset.siteId === site.id || (asset.siteQuantities && asset.siteQuantities[site.id] !== undefined))
+    (asset.siteId === site.id || (asset.siteQuantities && asset.siteQuantities[site.id] !== undefined)) // Keep ALL including zero
   );
 
   const handleEquipmentSelect = (equipment: Asset) => {
