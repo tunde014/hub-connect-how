@@ -24,6 +24,7 @@ interface MachinesSectionProps {
   assets: Asset[];
   equipmentLogs: EquipmentLogType[];
   employees: Employee[];
+  companySettings?: any;
   onAddEquipmentLog: (log: EquipmentLogType) => void;
   onUpdateEquipmentLog: (log: EquipmentLogType) => void;
 }
@@ -33,6 +34,7 @@ export const MachinesSection = ({
   assets,
   equipmentLogs,
   employees,
+  companySettings,
   onAddEquipmentLog,
   onUpdateEquipmentLog
 }: MachinesSectionProps) => {
@@ -634,6 +636,7 @@ export const MachinesSection = ({
               site={site}
               equipment={[selectedEquipment]}
               equipmentLogs={equipmentLogs.filter(log => log.equipmentId === selectedEquipment.id)}
+              companySettings={companySettings}
             />
           )}
         </DialogContent>
