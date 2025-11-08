@@ -103,6 +103,38 @@ export function transformEmployeeFromDB(dbEmployee) {
 }
 
 /**
+ * Transform activity data from frontend format to database format
+ */
+export function transformActivityToDB(activity) {
+  return {
+    id: activity.id,
+    user_id: activity.userId, // Map userId to user_id (snake_case)
+    userName: activity.userName,
+    action: activity.action,
+    entity: activity.entity,
+    entityId: activity.entityId,
+    details: activity.details,
+    timestamp: activity.timestamp instanceof Date ? activity.timestamp.toISOString() : activity.timestamp,
+  };
+}
+
+/**
+ * Transform activity data from database format to frontend format
+ */
+export function transformActivityFromDB(dbActivity) {
+  return {
+    id: dbActivity.id,
+    userId: dbActivity.user_id, // Map user_id to userId (camelCase)
+    userName: dbActivity.userName,
+    action: dbActivity.action,
+    entity: dbActivity.entity,
+    entityId: dbActivity.entityId,
+    details: dbActivity.details,
+    timestamp: new Date(dbActivity.timestamp),
+  };
+}
+
+/**
  * Transform site transaction data from database format to frontend format
  */
 export function transformSiteTransactionFromDB(dbTransaction) {

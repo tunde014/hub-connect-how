@@ -189,7 +189,9 @@ import {
   transformWaybillFromDB,
   transformWaybillToDB,
   transformSiteTransactionFromDB,
-  transformSiteTransactionToDB
+  transformSiteTransactionToDB,
+  transformActivityFromDB,
+  transformActivityToDB
 } from './dataTransform.js';
 
 const getAssets = () => {
@@ -351,6 +353,13 @@ const getEquipmentLogs = () => {
 
 const createEquipmentLog = (data) => {
   if (!db) throw new Error('Database not connected');
+  
+  // Validate that the equipment exists before inserting
+  const equipmentExists = db('assets').where({ id: data.equipmentId }).first();
+  if (!equipmentExists) {
+    throw new Error(`Cannot create equipment log: Asset with id ${data.equipmentId} does not exist`);
+  }
+  
   const dbData = transformEquipmentLogToDB(data);
   // Remove id, created_at, and updated_at for creation - let DB handle them
   delete dbData.id;
@@ -382,6 +391,13 @@ const getConsumableLogs = () => {
 
 const createConsumableLog = (data) => {
   if (!db) throw new Error('Database not connected');
+  
+  // Validate that the consumable exists before inserting
+  const consumableExists = db('assets').where({ id: data.consumableId }).first();
+  if (!consumableExists) {
+    throw new Error(`Cannot create consumable log: Asset with id ${data.consumableId} does not exist`);
+  }
+  
   const dbData = transformConsumableLogToDB(data);
   // Remove created_at and updated_at for creation - let DB handle them
   delete dbData.created_at;
@@ -425,12 +441,14 @@ const deleteSiteTransaction = remove('site_transactions');
 // --- ACTIVITIES ---
 const getActivities = () => {
   if (!db) throw new Error('Database not connected');
-  return db('activities').select('*').orderBy('timestamp', 'desc').limit(1000);
+  return db('activities').select('*').orderBy('timestamp', 'desc').limit(1000)
+    .then(activities => activities.map(transformActivityFromDB));
 }
 
 const createActivity = (data) => {
   if (!db) throw new Error('Database not connected');
-  return db('activities').insert(data);
+  const dbData = transformActivityToDB(data);
+  return db('activities').insert(dbData);
 }
 
 const clearActivities = () => {
