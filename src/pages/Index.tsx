@@ -1579,7 +1579,21 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
               try {
                 await window.db.createConsumableLog(log);
                 const logs = await window.db.getConsumableLogs();
-                setConsumableLogs(logs);
+                setConsumableLogs(logs.map((item: any) => ({
+                  id: item.id,
+                  consumableId: item.consumable_id,
+                  consumableName: item.consumable_name,
+                  siteId: item.site_id,
+                  date: new Date(item.date),
+                  quantityUsed: item.quantity_used,
+                  quantityRemaining: item.quantity_remaining,
+                  unit: item.unit,
+                  usedFor: item.used_for,
+                  usedBy: item.used_by,
+                  notes: item.notes,
+                  createdAt: new Date(item.created_at),
+                  updatedAt: new Date(item.updated_at)
+                })));
                 
                 // Update asset siteQuantities to reflect consumption
                 const asset = assets.find(a => a.id === log.consumableId);
