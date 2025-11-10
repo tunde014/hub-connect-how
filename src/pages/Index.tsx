@@ -267,21 +267,8 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
       if (window.db) {
         try {
           const logs = await window.db.getConsumableLogs();
-          setConsumableLogs(logs.map((item: any) => ({
-            id: item.id,
-            consumableId: item.consumable_id,
-            consumableName: item.consumable_name,
-            siteId: item.site_id,
-            date: new Date(item.date),
-            quantityUsed: item.quantity_used,
-            quantityRemaining: item.quantity_remaining,
-            unit: item.unit,
-            usedFor: item.used_for,
-            usedBy: item.used_by,
-            notes: item.notes,
-            createdAt: new Date(item.created_at),
-            updatedAt: new Date(item.updated_at)
-          })));
+          // Database already returns transformed data (camelCase), no need to map again
+          setConsumableLogs(logs);
         } catch (error) {
           logger.error('Failed to load consumable logs from database', error);
         }
@@ -1579,21 +1566,8 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
               try {
                 await window.db.createConsumableLog(log);
                 const logs = await window.db.getConsumableLogs();
-                setConsumableLogs(logs.map((item: any) => ({
-                  id: item.id,
-                  consumableId: item.consumable_id,
-                  consumableName: item.consumable_name,
-                  siteId: item.site_id,
-                  date: new Date(item.date),
-                  quantityUsed: item.quantity_used,
-                  quantityRemaining: item.quantity_remaining,
-                  unit: item.unit,
-                  usedFor: item.used_for,
-                  usedBy: item.used_by,
-                  notes: item.notes,
-                  createdAt: new Date(item.created_at),
-                  updatedAt: new Date(item.updated_at)
-                })));
+                // Database already returns transformed data (camelCase), no need to map again
+                setConsumableLogs(logs);
                 
                 // Update asset siteQuantities to reflect consumption
                 const asset = assets.find(a => a.id === log.consumableId);
@@ -1654,21 +1628,8 @@ const [consumableLogs, setConsumableLogs] = useState<ConsumableUsageLog[]>([]);
                 };
                 await window.db.updateConsumableLog(log.id, logData);
                 const logs = await window.db.getConsumableLogs();
-                setConsumableLogs(logs.map((item: any) => ({
-                  id: item.id,
-                  consumableId: item.consumable_id,
-                  consumableName: item.consumable_name,
-                  siteId: item.site_id,
-                  date: new Date(item.date),
-                  quantityUsed: item.quantity_used,
-                  quantityRemaining: item.quantity_remaining,
-                  unit: item.unit,
-                  usedFor: item.used_for,
-                  usedBy: item.used_by,
-                  notes: item.notes,
-                  createdAt: new Date(item.created_at),
-                  updatedAt: new Date(item.updated_at)
-                })));
+                // Database already returns transformed data (camelCase), no need to map again
+                setConsumableLogs(logs);
               } catch (error) {
                 console.error('Failed to update consumable log:', error);
                 toast({

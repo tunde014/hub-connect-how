@@ -257,7 +257,7 @@ export const ConsumablesSection = ({
 
   const getTotalUsed = (consumableId: string) => {
     return consumableLogs
-      .filter(log => log.consumableId === consumableId && log.siteId === site.id)
+      .filter(log => String(log.consumableId) === String(consumableId) && String(log.siteId) === String(site.id))
       .reduce((sum, log) => sum + log.quantityUsed, 0);
   };
 
