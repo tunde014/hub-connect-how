@@ -185,20 +185,20 @@ export const MachinesSection = ({
 
   const getLogForEquipmentAndDate = (equipmentId: string, date: Date) => {
     return equipmentLogs.find(log =>
-      log.equipmentId === equipmentId &&
+      String(log.equipmentId) === String(equipmentId) &&
       format(log.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
     );
   };
 
   const getLoggedDatesForEquipment = (equipmentId: string) => {
     return equipmentLogs
-      .filter(log => log.equipmentId === equipmentId)
+      .filter(log => String(log.equipmentId) === String(equipmentId))
       .map(log => log.date);
   };
 
   const getLoggedDatesForEquipmentAndSite = (equipmentId: string) => {
     return equipmentLogs
-      .filter(log => log.equipmentId === equipmentId && log.siteId === site.id)
+      .filter(log => String(log.equipmentId) === String(equipmentId) && String(log.siteId) === String(site.id))
       .map(log => log.date);
   };
 

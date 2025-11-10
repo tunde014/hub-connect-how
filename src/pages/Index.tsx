@@ -236,22 +236,8 @@ const [equipmentLogs, setEquipmentLogs] = useState<EquipmentLog[]>([]);
       if (window.db) {
         try {
           const logs = await window.db.getEquipmentLogs();
-          setEquipmentLogs(logs.map((item: any) => ({
-            id: item.id,
-            equipmentId: item.equipment_id ? item.equipment_id.toString() : item.equipment_id,
-            equipmentName: item.equipment_name,
-            siteId: item.site_id ? item.site_id.toString() : item.site_id,
-            date: new Date(item.date),
-            active: item.active,
-            downtimeEntries: typeof item.downtime_entries === 'string' ? JSON.parse(item.downtime_entries) : item.downtime_entries || [],
-            maintenanceDetails: item.maintenance_details,
-            dieselEntered: item.diesel_entered,
-            supervisorOnSite: item.supervisor_on_site,
-            clientFeedback: item.client_feedback,
-            issuesOnSite: item.issues_on_site,
-            createdAt: new Date(item.created_at),
-            updatedAt: new Date(item.updated_at)
-          })));
+          // Database already returns transformed data (camelCase), no need to map again
+          setEquipmentLogs(logs);
         } catch (error) {
           logger.error('Failed to load equipment logs from database', error);
         }
