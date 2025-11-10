@@ -8,6 +8,7 @@ export function transformAssetFromDB(dbAsset) {
     ...dbAsset,
     id: String(dbAsset.id), // Ensure ID is string
     siteId: dbAsset.site_id ? String(dbAsset.site_id) : undefined, // Ensure string
+    unitOfMeasurement: dbAsset.unit_of_measurement || dbAsset.unitOfMeasurement || 'pcs',
     createdAt: new Date(dbAsset.created_at),
     updatedAt: new Date(dbAsset.updated_at),
     purchaseDate: dbAsset.purchase_date ? new Date(dbAsset.purchase_date) : undefined,
